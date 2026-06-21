@@ -1,12 +1,3 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>超迷你小人展示</title>
-    <link rel="stylesheet" href="https://unpkg.com/@esotericsoftware/spine-player@4.1.19/dist/spine-player.css">
-    <script src="https://unpkg.com/@esotericsoftware/spine-player@4.1.19/dist/spine-player.js"></script>
-    <script src="data_core.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
 <body class="bg-gray-100 p-8">
     <div class="max-w-2xl mx-auto bg-white p-6 rounded-xl shadow-lg">
         <h1 class="text-xl font-bold mb-4">超迷你小人觀測器</h1>
@@ -15,41 +6,67 @@
             <option value="">請選擇角色</option>
         </select>
 
-        <div id="player-container" class="w-full h-[400px]"></div>
+        <div id="player-wrapper">
+            <div id="player-container" class="w-full h-[400px]"></div>
+        </div>
     </div>
 
     <script>
-        let player = null;
+        let currentPlayer = null;
 
         // 初始化選單
         const select = document.getElementById('charSelect');
-        // 假設 SPINE_MAP 的結構是 { "角色名": "對應的skin名" }
-        Object.keys(SPINE_MAP).forEach(name => {
-            let option = document.createElement('option');
-            option.value = name;
-            option.textContent = name;
-            select.appendChild(option);
-        });
+        if (typeof SPINE_MAP !== 'undefined') {
+            Object.keys(SPINE_MAP).forEach(name => {
+                let option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                select.appendChild(option);
+            });
+        } else {
+            alert("找不到 SPINE_MAP，請確認 data_core.js 是否有載入！");
+        }
 
         function loadSpine() {
             const charName = select.value;
             if (!charName) return;
 
-            // 如果已有播放器則銷毀重建
-            if (player) player.dispose();
+            // 1. 安全重建容器，避免舊的 Player 殘留導致 WebGL 崩潰
+            const wrapper = document.getElementById('player-wrapper');
+            wrapper.innerHTML = '<div id="player-container" class="w-full h-[400px]"></div>';
 
-            player = new spine.SpinePlayer("player-container", {
+            const skinName = SPINE_MAP[charName];
+            console.log(`準備載入... 角色: ${charName}, Skin: ${skinName}`);
+
+            // 2. 建立新的 Spine Player
+            currentPlayer = new spine.SpinePlayer("player-container", {
                 skelUrl: "Minimi.skel.bytes",
                 atlasUrl: "atlas.txt",
-                skin: SPINE_MAP[charName], // 從您的資料檔取得對應 Skin
-                animation: "Idle",         // 預設動畫
-                showControls: true,        // 開啟 Spine 內建控制器
+                skin: skinName, 
+                showControls: true,
                 backgroundColor: "#f3f4f6",
+                alpha: true,
+                premultipliedAlpha: true, // 💡 對應您 atlas.txt 裡的 pma: true
+                
                 success: (player) => {
-                    console.log("載入成功: " + charName);
+                    console.log("✅ 載入成功!");
+                    
+                    // 💡 自動偵測有哪些動畫可以播，避免指定錯誤名稱導致沒畫面
+                    const anims = player.skeleton.data.animations.map(a => a.name);
+                    console.log("此骨架可用的動畫清單:", anims);
+                    
+                    // 嘗試播放 Idle，如果沒有就播清單裡的第一個
+                    let targetAnim = anims.includes("Idle") ? "Idle" : (anims.includes("idle") ? "idle" : anims[0]);
+                    
+                    if (targetAnim) {
+                        player.animationState.setAnimation(0, targetAnim, true);
+                    }
+                },
+                error: (player, reason) => {
+                    console.error("❌ 載入失敗原因:", reason);
+                    alert("載入失敗！請按 F12 打開 Console 查看詳細錯誤。可能是跨域問題 (請用 Live Server 開啟) 或檔案找不到。");
                 }
             });
         }
     </script>
 </body>
-</html>
