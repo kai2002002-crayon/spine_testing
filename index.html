@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>超迷你小人展示</title>
+    <link rel="stylesheet" href="https://unpkg.com/@esotericsoftware/spine-player@4.1.19/dist/spine-player.css">
+    <script src="https://unpkg.com/@esotericsoftware/spine-player@4.1.19/dist/spine-player.js"></script>
+    <script src="data_core.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-2xl mx-auto bg-white p-6 rounded-xl shadow-lg">
+        <h1 class="text-xl font-bold mb-4">超迷你小人觀測器</h1>
+        
+        <select id="charSelect" class="w-full p-2 mb-6 border rounded-lg" onchange="loadSpine()">
+            <option value="">請選擇角色</option>
+        </select>
+
+        <div id="player-container" class="w-full h-[400px]"></div>
+    </div>
+
+    <script>
+        let player = null;
+
+        // 初始化選單
+        const select = document.getElementById('charSelect');
+        // 假設 SPINE_MAP 的結構是 { "角色名": "對應的skin名" }
+        Object.keys(SPINE_MAP).forEach(name => {
+            let option = document.createElement('option');
+            option.value = name;
+            option.textContent = name;
+            select.appendChild(option);
+        });
+
+        function loadSpine() {
+            const charName = select.value;
+            if (!charName) return;
+
+            // 如果已有播放器則銷毀重建
+            if (player) player.dispose();
+
+            player = new spine.SpinePlayer("player-container", {
+                skelUrl: "Minimi.skel.bytes",
+                atlasUrl: "Minimi.atlas.txt",
+                skin: SPINE_MAP[charName], // 從您的資料檔取得對應 Skin
+                animation: "Idle",         // 預設動畫
+                showControls: true,        // 開啟 Spine 內建控制器
+                backgroundColor: "#f3f4f6",
+                success: (player) => {
+                    console.log("載入成功: " + charName);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
