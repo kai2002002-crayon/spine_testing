@@ -40,31 +40,56 @@
             const charName = select.value;
             if (!charName) return;
 
-            // 1. 安全重建容器，避免舊的 Player 殘留導致 WebGL 崩潰
+            const skinName = SPINE_MAP[charName];
+            console.log(`準備載入... 角色: ${charName}, 預期 Skin: ${skinName}`);
+
+            // 💡 升級 1：必須先銷毀舊的播放器，否則 WebGL 記憶體會崩潰！
+            if (currentPlayer) {
+                currentPlayer.dispose();
+                currentPlayer = null;
+            }
+
+            // 安全重建容器
             const wrapper = document.getElementById('player-wrapper');
             wrapper.innerHTML = '<div id="player-container" class="w-full h-[400px]"></div>';
 
-            const skinName = SPINE_MAP[charName];
-            console.log(`準備載入... 角色: ${charName}, Skin: ${skinName}`);
-
-            // 2. 建立新的 Spine Player
+            // 建立新的 Spine Player
             currentPlayer = new spine.SpinePlayer("player-container", {
                 skelUrl: "Minimi.skel.bytes",
                 atlasUrl: "Minimi.atlas.txt",
-                skin: skinName, 
+                // 💡 升級 2：我們先不直接在這裡給 skin，等載入成功後再手動穿衣服最穩！
                 showControls: true,
                 backgroundColor: "#f3f4f6",
                 alpha: true,
-                premultipliedAlpha: true, // 💡 對應您 atlas.txt 裡的 pma: true
+                premultipliedAlpha: true, 
                 
                 success: (player) => {
-                    console.log("✅ 載入成功!");
+                    console.log("✅ 骨架載入成功!");
                     
-                    // 💡 自動偵測有哪些動畫可以播，避免指定錯誤名稱導致沒畫面
+                    // --- 🔍 偵錯神器：印出這包骨架到底有哪些 Skin 可以用 ---
+                    const availableSkins = player.skeleton.data.skins.map(s => s.name);
+                    console.log("📦 骨架內包含的所有 Skin 清單:", availableSkins);
+
+                    // --- 👗 升級 3：手動強制換裝並重置插槽 ---
+                    if (availableSkins.includes(skinName)) {
+                        player.skeleton.setSkinByName(skinName);
+                        player.skeleton.setSlotsToSetupPose(); // 🌟 極度關鍵：告訴 Spine 重新把圖片掛到骨架上
+                        console.log(`✨ 已成功套用 Skin: ${skinName}`);
+                    } else {
+                        console.error(`❌ 找不到名為 "${skinName}" 的 Skin！`);
+                        alert(`骨架中沒有 "${skinName}"！請按 F12 檢查 Console 裡的可用名單，並修正您的 SPINE_MAP。`);
+                        
+                        // 為了不讓畫面空著，隨便抓第一個非 default 的 Skin 來展示
+                        if (availableSkins.length > 1) {
+                            let fallbackSkin = availableSkins[1];
+                            player.skeleton.setSkinByName(fallbackSkin);
+                            player.skeleton.setSlotsToSetupPose();
+                            console.log(`已自動替換為備用 Skin: ${fallbackSkin}`);
+                        }
+                    }
+
+                    // --- 🎬 播放動畫 ---
                     const anims = player.skeleton.data.animations.map(a => a.name);
-                    console.log("此骨架可用的動畫清單:", anims);
-                    
-                    // 嘗試播放 Idle，如果沒有就播清單裡的第一個
                     let targetAnim = anims.includes("Idle") ? "Idle" : (anims.includes("idle") ? "idle" : anims[0]);
                     
                     if (targetAnim) {
@@ -73,7 +98,6 @@
                 },
                 error: (player, reason) => {
                     console.error("❌ 載入失敗原因:", reason);
-                    alert("載入失敗！請按 F12 打開 Console 查看詳細錯誤。可能是跨域問題 (請用 Live Server 開啟) 或檔案找不到。");
                 }
             });
         }
